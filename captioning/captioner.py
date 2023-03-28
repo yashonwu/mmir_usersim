@@ -39,6 +39,19 @@ import captioning.utils.resnet as resnet
 import wget
 import tempfile
 
+import torch.utils.model_zoo as model_zoo
+
+__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
+           'resnet152']
+
+model_urls = {
+    'resnet18': 'https://s3.amazonaws.com/pytorch/models/resnet18-5c106cde.pth',
+    'resnet34': 'https://s3.amazonaws.com/pytorch/models/resnet34-333f7ec4.pth',
+    'resnet50': 'https://s3.amazonaws.com/pytorch/models/resnet50-19c8e357.pth',
+    'resnet101': 'https://s3.amazonaws.com/pytorch/models/resnet101-5d3b4d8f.pth',
+    'resnet152': 'https://s3.amazonaws.com/pytorch/models/resnet152-b121ed2d.pth',
+}
+
 
 class object:
     def __init__(self):
@@ -153,7 +166,9 @@ class Captioner():
         # Load ResNet for processing images
         if opt.load_resnet:
             if image_feat_params['model_root']=='':
-                net = getattr(resnet, image_feat_params['model'])(pretrained=True)
+                # net = getattr(resnet, image_feat_params['model'])(pretrained=True)
+                net = getattr(resnet, image_feat_params['model'])()
+                net.load_state_dict(model_zoo.load_url(model_urls[image_feat_params['model']]))
             else:
                 net = getattr(resnet, image_feat_params['model'])()
                 net.load_state_dict(
