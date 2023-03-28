@@ -63,7 +63,7 @@ class Captioner():
         if image_feat_params==None:
             image_feat_params = {}
             image_feat_params['model'] = 'resnet101'
-            image_feat_params['model_root'] = 'imagenet_weights'
+            image_feat_params['model_root'] = ''
             image_feat_params['att_size'] = 7
 
         # inputs specific to shoe dataset
@@ -152,10 +152,12 @@ class Captioner():
 
         # Load ResNet for processing images
         if opt.load_resnet:
-            # net = getattr(resnet, image_feat_params['model'])(pretrained=True)
-            net = getattr(resnet, image_feat_params['model'])()
-            net.load_state_dict(
-                torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
+            if image_feat_params['model_root']=='':
+                net = getattr(resnet, image_feat_params['model'])(pretrained=True)
+            else:
+                net = getattr(resnet, image_feat_params['model'])()
+                net.load_state_dict(
+                    torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
             my_resnet = myResnet(net)
             if torch.cuda.is_available():
                 my_resnet.cuda()
