@@ -63,7 +63,7 @@ class Captioner():
         if image_feat_params==None:
             image_feat_params = {}
             image_feat_params['model'] = 'resnet101'
-            # image_feat_params['model_root'] = 'imagenet_weights'
+            image_feat_params['model_root'] = 'imagenet_weights'
             image_feat_params['att_size'] = 7
 
         # inputs specific to shoe dataset
@@ -87,17 +87,19 @@ class Captioner():
 
         # load pre-trained model, adjusting if URL
         if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
-            try:
-                wget.download(opt.infos_path, infos_loc)
-            except Exception as err:
-                print(f"[{err}]")
+            if not os.path.exists(infos_loc):
+                try:
+                    wget.download(opt.infos_path, infos_loc)
+                except Exception as err:
+                    print(f"[{err}]")
 
         if opt.model_path.startswith("http:") or opt.model_path.startswith("https:"):
-            try:
-                wget.download(opt.model_path, model_loc)
-            except Exception as err:
-                print(f"[{err}]")
-            opt.model = model_loc
+            if not os.path.exists(model_loc):
+                try:
+                    wget.download(opt.model_path, model_loc)
+                except Exception as err:
+                    print(f"[{err}]")
+                opt.model = model_loc
         else:
             opt.model = model_path
 
@@ -150,9 +152,10 @@ class Captioner():
 
         # Load ResNet for processing images
         if opt.load_resnet:
-            net = getattr(resnet, image_feat_params['model'])(pretrained=True)
-            # net.load_state_dict(
-            #     torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
+            # net = getattr(resnet, image_feat_params['model'])(pretrained=True)
+            net = getattr(resnet, image_feat_params['model'])()
+            net.load_state_dict(
+                torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
             my_resnet = myResnet(net)
             if torch.cuda.is_available():
                 my_resnet.cuda()
