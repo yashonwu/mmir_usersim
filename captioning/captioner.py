@@ -89,10 +89,15 @@ class Captioner():
         if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
             try:
                 wget.download(opt.infos_path, infos_loc)
-                wget.download(opt.model, model_loc)
-                opt.model = model_loc
             except Exception as err:
                 print(f"[{err}]")
+
+        if opt.model_path.startswith("http:") or opt.model_path.startswith("https:"):
+            try:
+                wget.download(opt.model, model_loc)
+            except Exception as err:
+                print(f"[{err}]")
+            opt.model = model_loc
         else:
             opt.model = model_path
 
