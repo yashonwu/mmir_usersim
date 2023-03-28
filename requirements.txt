@@ -1,0 +1,5 @@
+transformers
+git+https://github.com/ruotianluo/meshed-memory-transformer.git
+lmdbdict
+wget
+gradio

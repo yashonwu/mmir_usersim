@@ -9,18 +9,16 @@ import os, sys
 from six.moves import cPickle
 
 from sys import path
+
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, 'captioning/')
-print('relative captioning is called')
-# import models
-# from data.dataloader import *
-# from data.dataloaderraw import *
-# import utils.misc as utils
+# print('relative captioning is called')
+
 import captioning.utils.opts as opts
 import captioning.models as models
 from captioning.data.dataloader import *
 from captioning.data.dataloaderraw import *
-# import captioning.utils.eval_utils as eval_utils
+
 import argparse
 import captioning.utils.misc as utils
 import torch
@@ -33,7 +31,6 @@ preprocess = trn.Compose([
     # trn.ToTensor(),
     trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
-
 
 from captioning.utils.resnet_utils import myResnet
 from captioning.utils.resnet_utils import ResNetBatch
@@ -60,9 +57,15 @@ class object:
 
 class Captioner():
 
-    def __init__(self, is_relative= True, model_path= None, image_feat_params= None, user_type=None, data_type=None):
+    def __init__(self, is_relative=True, model_path=None, image_feat_params=None, data_type=None, load_resnet=True):
         opt = object()
-        
+
+        if image_feat_params==None:
+            image_feat_params = {}
+            image_feat_params['model'] = 'resnet101'
+            # image_feat_params['model_root'] = 'imagenet_weights'
+            image_feat_params['att_size'] = 7
+
         # inputs specific to shoe dataset
         infos_path = os.path.join(model_path, 'infos_best.pkl')
         model_name = os.path.join(model_path, 'model_best.pth')
@@ -70,30 +73,31 @@ class Captioner():
         opt.infos_path = infos_path
         opt.model = model_name
         opt.beam_size = 1
-        opt.load_resnet = False
-        
-#         checkpoint_path = tempfile.mkdtemp()
-#         infos_loc = os.path.join(checkpoint_path, 'infos_best.pkl')
+        opt.load_resnet = load_resnet
 
-#         # load pre-trained model, adjusting if URL
-#         if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
-#             try:
-#                 wget.download(opt.infos_path, infos_loc)
-#             except Exception as err:
-#                 print(f"[{err}]")
+        if not os.path.exists('./checkpoints_usersim'):
+            os.mkdir('./checkpoints_usersim')
 
-#         if os.path.exists(infos_loc):
-#             # load existing infos
-#             with open(infos_loc, 'rb') as f:
-#                 infos = cPickle.load(f)
+        checkpoint_path = os.path.join('./checkpoints_usersim', data_type)
+        if not os.path.exists(checkpoint_path):
+            os.mkdir(checkpoint_path)
 
-        with open(opt.infos_path, 'rb') as f:
-            infos = cPickle.load(f)
-                
+        infos_loc = os.path.join(checkpoint_path, 'infos_best.pkl')
+
+        # load pre-trained model, adjusting if URL
+        if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
+            try:
+                wget.download(opt.infos_path, infos_loc)
+            except Exception as err:
+                print(f"[{err}]")
+
+        if os.path.exists(infos_loc):
+            # load existing infos
+            with open(infos_loc, 'rb') as f:
+                infos = cPickle.load(f)
+
         self.caption_model = infos["opt"].caption_model
 
-#         print('infos:', infos)
-        
         # override and collect parameters
         if len(opt.input_fc_dir) == 0:
             opt.input_fc_dir = infos['opt'].input_fc_dir
@@ -114,8 +118,8 @@ class Captioner():
                     vars(opt).update({k: vars(infos['opt'])[k]})  # copy over options from model
 
         vocab = infos['vocab']  # ix -> word mapping
-        
-#         print('opt:', opt)
+
+        #         print('opt:', opt)
 
         # Setup the model
         opt.vocab = vocab
@@ -134,10 +138,11 @@ class Captioner():
         self.vocab = vocab
         self.opt = vars(opt)
 
+        # Load ResNet for processing images
         if opt.load_resnet:
-            net = getattr(resnet, image_feat_params['model'])()
-            net.load_state_dict(
-                torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
+            net = getattr(resnet, image_feat_params['model'])(pretrained=True)
+            # net.load_state_dict(
+            #     torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
             my_resnet = myResnet(net)
             if torch.cuda.is_available():
                 my_resnet.cuda()
@@ -151,62 +156,29 @@ class Captioner():
             self.my_resnet = my_resnet
         self.att_size = image_feat_params['att_size']
 
-    def gen_caption(self, im_target, im_reference=None):
-        if self.is_relative and im_reference == None:
-            return ''
-
-        if not self.is_relative and not im_reference == None:
-            return ''
-
-        fc_feat, att_feat = self.get_feat(im_target, im_reference)
-        tmp = (fc_feat, att_feat)
-        tmp = [Variable(torch.from_numpy(_), volatile=True).cuda() for _ in tmp]
-        fc_feat, att_feat = tmp
-
-        if not self.opt['use_att']:
-            att_feat = Variable(torch.zeros(1, 1, 1, 1), volatile=True)
-
-#         seq, _ = self.model.sample(fc_feat, att_feat, self.opt)
-        att_masks = np.zeros(att_feat.shape[:2], dtype='float32')
-        for i in range(len(att_feat)):
-            att_masks[i, :att_feat[i].shape[0]] = 1
-        # set att_masks to None if attention features have same length
-        if att_masks.sum() == att_masks.size:
-            att_masks = None
-
-        seq, _ = self.model(fc_feat, att_feat, att_masks=att_masks, opt=self.opt, mode='sample')
-        sents = utils.decode_sequence(self.vocab, seq)
-
-        return seq, sents
-
-
-    def gen_caption_from_feat(self, feat_target, feat_reference= None):
+    def gen_caption_from_feat(self, feat_target, feat_reference=None):
         if self.is_relative and feat_reference == None:
             return None, None
 
         if not self.is_relative and not feat_reference == None:
             return None, None
 
-        # note: 
-        # for shoe, we use show_attend_tell with [target, target-reference].
-        # for fashion iq (dress, shirt, toptee), we use transformer [target, reference].
-        # To Do: I need to re-train the transformer-based user simulators with [target, target-reference].
+        # note:
+        # for shoes, we use the show_attend_tell model with [target, target-reference].
+        # for fashion iq (dresses, shirts, tops&tees), we use the transformer model with [target, reference].
         if self.is_relative:
             if self.caption_model == 'show_attend_tell':
-                fc_feat = torch.cat((feat_target[0], feat_target[0] - feat_reference[0]), dim= -1)
-                att_feat = torch.cat((feat_target[1], feat_target[1] - feat_reference[1]), dim= -1)
+                fc_feat = torch.cat((feat_target[0], feat_target[0] - feat_reference[0]), dim=-1)
+                att_feat = torch.cat((feat_target[1], feat_target[1] - feat_reference[1]), dim=-1)
             else:
-                fc_feat = torch.cat((feat_target[0], feat_reference[0]), dim= -1)
-                att_feat = torch.cat((feat_target[1], feat_reference[1]), dim= -1)
+                fc_feat = torch.cat((feat_target[0], feat_reference[0]), dim=-1)
+                att_feat = torch.cat((feat_target[1], feat_reference[1]), dim=-1)
         else:
             fc_feat = feat_target[0]
             att_feat = feat_target[1]
-        
-        # Reshape to B x K x C (128,14,14,4096) --> (128,196,4096)
-        att_feat = att_feat.view(att_feat.shape[0],att_feat.shape[1]*att_feat.shape[2], att_feat.shape[-1])
 
-#         seq, _ = self.model._sample(fc_feat, att_feat, self.opt)
-#         seq, _ = self.model(fc_feat, att_feat, att_masks=None, opt=self.opt, mode='sample')
+        # Reshape to B x K x C (128,14,14,4096) --> (128,196,4096)
+        att_feat = att_feat.view(att_feat.shape[0], att_feat.shape[1] * att_feat.shape[2], att_feat.shape[-1])
 
         att_masks = np.zeros(att_feat.shape[:2], dtype='float32')
         for i in range(len(att_feat)):
@@ -214,10 +186,7 @@ class Captioner():
         # set att_masks to None if attention features have same length
         if att_masks.sum() == att_masks.size:
             att_masks = None
-        
-#         seq, _ = self.model._sample(fc_feat, att_feat, att_masks=att_masks, opt=self.opt)
-        # seq, _ = self.model(fc_feat, att_feat, att_masks=att_masks, opt=self.opt, mode='sample')
-    
+
         if self.caption_model == 'show_attend_tell':
             seq, _ = self.model.sample(fc_feat, att_feat, self.opt)
         else:
@@ -228,22 +197,6 @@ class Captioner():
 
     def get_vocab_size(self):
         return len(self.vocab)
-
-    def get_feat(self, im_target, im_referece):
-
-        tmp_fc, tmp_att = self.compute_img_feat_batch(im_target)
-        tmp_fc = tmp_fc.data.cpu().float().numpy()
-        tmp_att = tmp_att.data.cpu().float().numpy()
-
-        if self.is_relative:
-            tmp_fc_ref, tmp_att_ref = self.compute_img_feat_batch(im_referece)
-            tmp_fc_ref = tmp_fc_ref.data.cpu().float().numpy()
-            tmp_att_ref = tmp_att_ref.data.cpu().float().numpy()
-
-            tmp_fc = np.concatenate((tmp_fc, tmp_fc_ref), axis=-1)
-            tmp_att = np.concatenate((tmp_att, tmp_att_ref), axis=-1)
-
-        return tmp_fc, tmp_att
 
     def get_img_feat(self, img_name):
         # load the image
@@ -261,19 +214,19 @@ class Captioner():
 
         return fc, att
 
-    def get_img_feat_batch(self, img_names, batchsize= 32):
+    def get_img_feat_batch(self, img_names, batchsize=32):
         if not isinstance(img_names, list):
             img_names = [img_names]
 
         num_images = len(img_names)
-        num_batches = math.ceil(np.float(num_images)/np.float(batchsize))
+        num_batches = math.ceil(np.float(num_images) / np.float(batchsize))
 
         feature_fc = []
         feature_att = []
 
         for id in range(num_batches):
             startInd = id * batchsize
-            endInd = min((id+1)*batchsize, num_images)
+            endInd = min((id + 1) * batchsize, num_images)
 
             img_names_current_batch = img_names[startInd:endInd]
             I_current_batch = []
@@ -289,7 +242,7 @@ class Captioner():
                 I = torch.from_numpy(I.transpose([2, 0, 1]))
                 I_current_batch.append(preprocess(I))
 
-            I_current_batch = torch.stack(I_current_batch, dim= 0)
+            I_current_batch = torch.stack(I_current_batch, dim=0)
             if torch.cuda.is_available(): I_current_batch = I_current_batch.cuda()
             I_current_batch = Variable(I_current_batch, volatile=True)
             fc, att = self.my_resnet_batch(I_current_batch, self.att_size)
@@ -297,8 +250,8 @@ class Captioner():
             feature_fc.append(fc)
             feature_att.append(att)
 
-        feature_fc = torch.cat(feature_fc, dim= 0)
-        feature_att = torch.cat(feature_att, dim= 0)
+        feature_fc = torch.cat(feature_fc, dim=0)
+        feature_att = torch.cat(feature_att, dim=0)
 
         return feature_fc, feature_att
 
