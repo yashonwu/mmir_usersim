@@ -168,7 +168,7 @@ class Captioner():
             if image_feat_params['model_root']=='':
                 # net = getattr(resnet, image_feat_params['model'])(pretrained=True)
                 net = getattr(resnet, image_feat_params['model'])()
-                net.load_state_dict(model_zoo.load_url(model_urls[image_feat_params['model']]))
+                net.load_state_dict(torch.hub.load_state_dict_from_url(model_urls[image_feat_params['model']]))
             else:
                 net = getattr(resnet, image_feat_params['model'])()
                 net.load_state_dict(
