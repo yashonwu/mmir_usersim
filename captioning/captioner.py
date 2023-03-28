@@ -68,10 +68,10 @@ class Captioner():
 
         # inputs specific to shoe dataset
         infos_path = os.path.join(model_path, 'infos_best.pkl')
-        model_name = os.path.join(model_path, 'model_best.pth')
+        model_path = os.path.join(model_path, 'model_best.pth')
 
         opt.infos_path = infos_path
-        opt.model = model_name
+        opt.model_path = model_path
         opt.beam_size = 1
         opt.load_resnet = load_resnet
 
@@ -83,13 +83,18 @@ class Captioner():
             os.mkdir(checkpoint_path)
 
         infos_loc = os.path.join(checkpoint_path, 'infos_best.pkl')
+        model_loc = os.path.join(checkpoint_path, 'model_best.pth')
 
         # load pre-trained model, adjusting if URL
         if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
             try:
                 wget.download(opt.infos_path, infos_loc)
+                wget.download(opt.model, model_loc)
+                opt.model = model_loc
             except Exception as err:
                 print(f"[{err}]")
+        else:
+            opt.model = model_path
 
         if os.path.exists(infos_loc):
             # load existing infos
