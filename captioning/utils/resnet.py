@@ -2,6 +2,18 @@ import torch
 import torch.nn as nn
 import torchvision.models.resnet
 from torchvision.models.resnet import BasicBlock, Bottleneck
+import torch.utils.model_zoo as model_zoo
+
+__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
+           'resnet152']
+
+model_urls = {
+    'resnet18': 'https://s3.amazonaws.com/pytorch/models/resnet18-5c106cde.pth',
+    'resnet34': 'https://s3.amazonaws.com/pytorch/models/resnet34-333f7ec4.pth',
+    'resnet50': 'https://s3.amazonaws.com/pytorch/models/resnet50-19c8e357.pth',
+    'resnet101': 'https://s3.amazonaws.com/pytorch/models/resnet101-5d3b4d8f.pth',
+    'resnet152': 'https://s3.amazonaws.com/pytorch/models/resnet152-b121ed2d.pth',
+}
 
 class ResNet(torchvision.models.resnet.ResNet):
     def __init__(self, block, layers, num_classes=1000):
@@ -53,6 +65,7 @@ def resnet101(pretrained=False):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
+
     model = ResNet(Bottleneck, [3, 4, 23, 3])
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
