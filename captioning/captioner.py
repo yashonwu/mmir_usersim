@@ -172,7 +172,7 @@ class Captioner():
             else:
                 net = getattr(resnet, image_feat_params['model'])()
                 net.load_state_dict(
-                    torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '.pth')))
+                    torch.load(os.path.join(image_feat_params['model_root'], image_feat_params['model'] + '-5d3b4d8f.pth')))
             my_resnet = myResnet(net)
             if torch.cuda.is_available():
                 my_resnet.cuda()
