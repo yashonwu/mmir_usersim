@@ -56,7 +56,7 @@ class object:
 
 class Captioner():
 
-    def __init__(self, is_relative=True, model_path=None, image_feat_params=None, data_type=None, load_resnet=True, diff_feat=True):
+    def __init__(self, is_relative=True, model_path=None, image_feat_params=None, data_type=None, load_resnet=True, diff_feat=None):
         opt = object()
 
         if image_feat_params==None:
