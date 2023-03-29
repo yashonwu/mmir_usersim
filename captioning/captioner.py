@@ -74,25 +74,39 @@ class Captioner():
         opt.beam_size = 1
         opt.load_resnet = load_resnet
 
-        if not os.path.exists('./checkpoints_usersim'):
-            os.mkdir('./checkpoints_usersim')
-
-        checkpoint_path = os.path.join('./checkpoints_usersim', data_type)
-        if not os.path.exists(checkpoint_path):
-            os.mkdir(checkpoint_path)
-
-        infos_loc = os.path.join(checkpoint_path, 'infos_best.pkl')
-        model_loc = os.path.join(checkpoint_path, 'model_best.pth')
-
         # load pre-trained model, adjusting if URL
         if opt.infos_path.startswith("http:") or opt.infos_path.startswith("https:"):
+            # create a folder to store the checkpoints for downloading
+            if not os.path.exists('./checkpoints_usersim'):
+                os.mkdir('./checkpoints_usersim')
+
+            checkpoint_path = os.path.join('./checkpoints_usersim', data_type)
+            if not os.path.exists(checkpoint_path):
+                os.mkdir(checkpoint_path)
+
+            # set the location for infos
+            infos_loc = os.path.join(checkpoint_path, 'infos_best.pkl')
+
             if not os.path.exists(infos_loc):
                 try:
                     wget.download(opt.infos_path, infos_loc)
                 except Exception as err:
                     print(f"[{err}]")
+        else:
+            infos_loc = infos_path
 
         if opt.model_path.startswith("http:") or opt.model_path.startswith("https:"):
+            # create a folder to store the checkpoints for downloading
+            if not os.path.exists('./checkpoints_usersim'):
+                os.mkdir('./checkpoints_usersim')
+
+            checkpoint_path = os.path.join('./checkpoints_usersim', data_type)
+            if not os.path.exists(checkpoint_path):
+                os.mkdir(checkpoint_path)
+
+            # set the location for models
+            model_loc = os.path.join(checkpoint_path, 'model_best.pth')
+
             if not os.path.exists(model_loc):
                 try:
                     wget.download(opt.model_path, model_loc)
