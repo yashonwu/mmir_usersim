@@ -56,10 +56,8 @@ class object:
 
 class Captioner():
 
-    def __init__(self, is_relative=True, model_path=None, image_feat_params=None, data_type=None, load_resnet=True, diff_feature=True):
+    def __init__(self, is_relative=True, model_path=None, image_feat_params=None, data_type=None, load_resnet=True, diff_feat=True):
         opt = object()
-
-        self.diff_feat = diff_feature
 
         if image_feat_params==None:
             image_feat_params = {}
@@ -186,6 +184,15 @@ class Captioner():
             self.my_resnet = my_resnet
         self.att_size = image_feat_params['att_size']
 
+        # Control the input features of the model
+        if diff_feat == None:
+            if self.caption_model == "show_attend_tell":
+                self.diff_feat = True
+            else:
+                self.diff_feat = False
+        else:
+            self.diff_feat = diff_feat
+
     def gen_caption_from_feat(self, feat_target, feat_reference=None):
         if self.is_relative and feat_reference == None:
             return None, None
@@ -193,9 +200,6 @@ class Captioner():
         if not self.is_relative and not feat_reference == None:
             return None, None
 
-        # note:
-        # for shoes, we use the show_attend_tell model with [target, target-reference].
-        # for fashion iq (dresses, shirts, tops&tees), we use the transformer model with [target, reference].
         if self.is_relative:
             if self.diff_feat:
                 fc_feat = torch.cat((feat_target[0], feat_target[0] - feat_reference[0]), dim=-1)
