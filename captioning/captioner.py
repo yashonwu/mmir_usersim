@@ -243,8 +243,10 @@ class Captioner():
         I = I.astype('float32') / 255.0
         I = torch.from_numpy(I.transpose([2, 0, 1]))
         if torch.cuda.is_available(): I = I.cuda()
-        I = Variable(preprocess(I), volatile=True)
-        fc, att = self.my_resnet(I, self.att_size)
+        # I = Variable(preprocess(I), volatile=True)
+        with torch.no_grad():
+            I = preprocess(I)
+            fc, att = self.my_resnet(I, self.att_size)
 
         return fc, att
 
@@ -278,8 +280,9 @@ class Captioner():
 
             I_current_batch = torch.stack(I_current_batch, dim=0)
             if torch.cuda.is_available(): I_current_batch = I_current_batch.cuda()
-            I_current_batch = Variable(I_current_batch, volatile=True)
-            fc, att = self.my_resnet_batch(I_current_batch, self.att_size)
+            # I_current_batch = Variable(I_current_batch, volatile=True)
+            with torch.no_grad():
+                fc, att = self.my_resnet_batch(I_current_batch, self.att_size)
 
             feature_fc.append(fc)
             feature_att.append(att)
